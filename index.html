@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title>Tap Hearts 💘</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#ff3d7f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+
+  <body>
+    <div class="hearts-layer" id="bgHearts" aria-hidden="true"></div>
+
+    <main class="wrap">
+      <header class="topbar glass">
+        <div class="brand">
+          <div class="brand-badge" aria-hidden="true">💘</div>
+          <div class="brand-text">
+            <div class="title">Tap Hearts</div>
+            <div class="sub" id="subtitle">Valentine Edition</div>
+          </div>
+        </div>
+
+        <div class="hud">
+          <div class="pill">
+            <div class="pill-lab">Score</div>
+            <div class="pill-num" id="score">0</div>
+          </div>
+          <div class="pill">
+            <div class="pill-lab">Time</div>
+            <div class="pill-num" id="time">30s</div>
+          </div>
+          <div class="pill">
+            <div class="pill-lab">Miss</div>
+            <div class="pill-num" id="miss">0/3</div>
+          </div>
+        </div>
+      </header>
+
+      <section class="play glass" id="play">
+        <div class="hint" id="hint">
+          <div class="hint-title">Tap the hearts 💗</div>
+          <div class="hint-sub">Miss 3 hearts or run out of time.</div>
+        </div>
+        <div class="burst" id="burst" aria-hidden="true"></div>
+      </section>
+
+      <footer class="controls">
+        <button class="btn btn-primary" id="startBtn">Start</button>
+        <button class="btn btn-secondary" id="resetBtn">Reset</button>
+      </footer>
+    </main>
+
+    <div class="modal" id="modalStart" role="dialog" aria-modal="true" aria-label="Start">
+      <div class="modal-card glass-strong">
+        <div class="modal-title">Ready? 💘</div>
+        <div class="modal-text">
+          Tap as many hearts as you can. Miss <b>3</b> and it’s game over.
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="startNowBtn">Let’s go</button>
+          <button class="btn btn-secondary" id="closeStartBtn">Not yet</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="modalOver" role="dialog" aria-modal="true" aria-label="Game over">
+      <div class="modal-card glass-strong">
+        <div class="modal-title">Game Over 💔</div>
+        <div class="modal-text" id="finalText">Final score: 0</div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="playAgainBtn">Play again</button>
+          <button class="btn btn-secondary" id="closeOverBtn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      const CONFIG = {
+        roundSeconds: 30,
+        missLimit: 3,
+        spawnEveryMs: 550,
+        heart: { sizeMin: 34, sizeMax: 64, durMin: 5500, durMax: 9500 },
+        burstCount: 22,
+        bgHeartEveryMs: 420,
+      };
+
+      const $ = (id) => document.getElementById(id);
+
+      const state = {
+        playing: false,
+        score: 0,
+        misses: 0,
+        timeLeft: CONFIG.roundSeconds,
+        spawnTimer: null,
+        tickTimer: null,
+        bgTimer: null,
+      };
+
+      function showToast(msg) {
+        const el = $("toast");
+        el.textContent = msg;
+        el.classList.add("show");
+        clearTimeout(showToast._t);
+        showToast._t = setTimeout(() => el.classList.remove("show"), 1400);
+      }
+
+      function setHud() {
+        $("score").textContent = String(state.score);
+        $("time").textContent = `${state.timeLeft}s`;
+        $("miss").textContent = `${state.misses}/${CONFIG.missLimit}`;
+        $("subtitle").textContent = state.playing ? "Don’t miss 3…" : "Valentine Edition";
+      }
+
+      function openModal(id) { $(id).classList.add("open"); }
+      function closeModal(id) { $(id).classList.remove("open"); }
+
+      function clearHearts() {
+        [...$("play").querySelectorAll(".heart")].forEach((n) => n.remove());
+      }
+
+      function vibrateLight() { if (navigator.vibrate) navigator.vibrate(10); }
+
+      function rand(a, b) { return a + Math.random() * (b - a); }
+
+      function huePinkish() {
+        const pick = Math.random();
+        if (pick < 0.6) return rand(330, 360);
+        if (pick < 0.9) return rand(0, 25);
+        return rand(270, 310);
+      }
+
+      function spawnBgHeart() {
+        const layer = $("bgHearts");
+        const h = document.createElement("div");
+        h.className = "bg-heart";
+        const size = rand(10, 20);
+        const left = rand(0, window.innerWidth);
+        const dur = rand(6000, 11000);
+        h.style.left = `${left}px`;
+        h.style.width = `${size}px`;
+        h.style.height = `${size}px`;
+        h.style.animationDuration = `${dur}ms`;
+        h.style.opacity = String(rand(0.25, 0.6));
+        h.style.background = `hsl(${huePinkish()} 90% 65%)`;
+        layer.appendChild(h);
+        setTimeout(() => h.remove(), dur + 200);
+      }
+
+      function startBgHearts() {
+        if (state.bgTimer) clearInterval(state.bgTimer);
+        state.bgTimer = setInterval(spawnBgHeart, CONFIG.bgHeartEveryMs);
+        for (let i = 0; i < 10; i++) spawnBgHeart();
+      }
+
+      function heartBurst(count = CONFIG.burstCount) {
+        const burst = $("burst");
+        burst.innerHTML = "";
+        const rect = $("play").getBoundingClientRect();
+        for (let i = 0; i < count; i++) {
+          const p = document.createElement("div");
+          p.className = "particle";
+          const size = rand(10, 20);
+          const x = rand(rect.width * 0.2, rect.width * 0.8);
+          const y = rand(rect.height * 0.2, rect.height * 0.8);
+          const dx = rand(-140, 140);
+          const dy = rand(-220, 80);
+          const dur = rand(700, 1200);
+          p.style.left = `${x}px`;
+          p.style.top = `${y}px`;
+          p.style.width = `${size}px`;
+          p.style.height = `${size}px`;
+          p.style.setProperty("--dx", `${dx}px`);
+          p.style.setProperty("--dy", `${dy}px`);
+          p.style.animationDuration = `${dur}ms`;
+          p.style.background = `hsl(${huePinkish()} 90% 65%)`;
+          burst.appendChild(p);
+          setTimeout(() => p.remove(), dur + 50);
+        }
+      }
+
+      function spawnGameHeart() {
+        if (!state.playing) return;
+
+        const play = $("play");
+        const rect = play.getBoundingClientRect();
+
+        const size = rand(CONFIG.heart.sizeMin, CONFIG.heart.sizeMax);
+        const x = rand(size / 2 + 12, rect.width - size / 2 - 12);
+
+        const dur = rand(CONFIG.heart.durMin, CONFIG.heart.durMax);
+        const hue = huePinkish();
+
+        const heart = document.createElement("div");
+        heart.className = "heart";
+        heart.style.left = `${x}px`;
+        heart.style.setProperty("--size", `${size}px`);
+        heart.style.setProperty("--dur", `${dur}ms`);
+        heart.style.background = `hsl(${hue} 90% 65%)`;
+
+        heart.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          if (!state.playing) return;
+          state.score += 1;
+          setHud();
+          vibrateLight();
+          heart.remove();
+        });
+
+        heart.addEventListener("animationend", () => {
+          if (!heart.isConnected) return;
+          heart.remove();
+          if (!state.playing) return;
+          state.misses += 1;
+          setHud();
+          showToast("Missed 😅");
+          if (state.misses >= CONFIG.missLimit) gameOver();
+        });
+
+        play.appendChild(heart);
+      }
+
+      function tickSecond() {
+        if (!state.playing) return;
+        state.timeLeft -= 1;
+        setHud();
+        if (state.timeLeft <= 0) gameOver();
+      }
+
+      function startGame() {
+        if (state.playing) return;
+
+        state.playing = true;
+        state.score = 0;
+        state.misses = 0;
+        state.timeLeft = CONFIG.roundSeconds;
+
+        $("hint").classList.add("hide");
+        clearHearts();
+        setHud();
+        heartBurst(18);
+
+        state.spawnTimer = setInterval(spawnGameHeart, CONFIG.spawnEveryMs);
+        state.tickTimer = setInterval(tickSecond, 1000);
+
+        showToast("Go! 💖");
+      }
+
+      function stopTimers() {
+        if (state.spawnTimer) clearInterval(state.spawnTimer);
+        if (state.tickTimer) clearInterval(state.tickTimer);
+        state.spawnTimer = null;
+        state.tickTimer = null;
+      }
+
+      function resetGame() {
+        state.playing = false;
+        stopTimers();
+        clearHearts();
+        state.score = 0;
+        state.misses = 0;
+        state.timeLeft = CONFIG.roundSeconds;
+        $("hint").classList.remove("hide");
+        setHud();
+      }
+
+      function gameOver() {
+        state.playing = false;
+        stopTimers();
+        clearHearts();
+        $("finalText").textContent = `Final score: ${state.score}`;
+        openModal("modalOver");
+        showToast("Game over 💔");
+      }
+
+      function bindUI() {
+        $("startBtn").addEventListener("click", () => openModal("modalStart"));
+        $("resetBtn").addEventListener("click", resetGame);
+
+        $("startNowBtn").addEventListener("click", () => {
+          closeModal("modalStart");
+          startGame();
+        });
+        $("closeStartBtn").addEventListener("click", () => closeModal("modalStart"));
+
+        $("playAgainBtn").addEventListener("click", () => {
+          closeModal("modalOver");
+          startGame();
+        });
+        $("closeOverBtn").addEventListener("click", () => {
+          closeModal("modalOver");
+          resetGame();
+        });
+
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") {
+            closeModal("modalStart");
+            closeModal("modalOver");
+          }
+        });
+
+        ["modalStart", "modalOver"].forEach((id) => {
+          $(id).addEventListener("click", (e) => {
+            if (e.target === $(id)) closeModal(id);
+          });
+        });
+      }
+
+      async function registerSW() {
+        if (!("serviceWorker" in navigator)) return;
+        try {
+          await navigator.serviceWorker.register("./sw.js");
+        } catch {
+          // ignore
+        }
+      }
+
+      function init() {
+        bindUI();
+        resetGame();
+        startBgHearts();
+        registerSW();
+      }
+
+      init();
+    </script>
+  </body>
+</html>
