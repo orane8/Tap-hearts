@@ -1,0 +1,15 @@
+{
+  "name": "Tap Hearts",
+  "short_name": "TapHearts",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffdde7",
+  "theme_color": "#ff3d7f",
+  "icons": [
+    {
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABfElEQVR4nO2aS07DMBiGv6pQ0QkQG1B0B9QK0QkQG1A0QO0Qb7m5Gm0Yy2mQq7pVQn7k2bGmT8Qkqkq9b3zv9g1sYwQAAAAAAAAAAAKC5m3cB8qf3oQdZc8vKf5c1o2yqk0q2G8b8rY8mQdYz0m3yq5yGq3w0Zxqk1mJb2w0QyYx6sJYc0p3mGmG8yQm9tq9l0J0qgq9oOZbY9q3m2s0KcRkq+0Qp0o1n8n2o5n3b0m8bYhY2r2c3m2x0t2H6bQ6Z9iB2m8yQ4m8p5g2Hqk2o2m2c0m1m7g4m+8Q3m9o1b8c0o7gH2p5kq8mQbYHnqkq2lqv6mJ1mQYw3mQ0mQYpH0mQYw3mQ0mQYpH0mQYw3mQ0mQYpH0mQb4d8b7wQ2m6c0m2o8Qp0q8mQY9o8lqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqkqgAAAAAAAAAAAPgJ8gQZlq7x8QAAAABJRU5ErkJggg==",
+      "sizes": "64x64",
+      "type": "image/png"
+    }
+  ]
+}
